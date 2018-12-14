@@ -156,31 +156,31 @@ ui <-  shinyUI(navbarPage("Google Analytics Customer Revenue Prediction",
                                        condition = "input.new == true",
                                        DT::dataTableOutput("mytable")
                                      ),
-                                  DT::dataTableOutput("result")
+                                  conditionalPanel(
+                                    condition = "input.go == true",
+                                    DT::dataTableOutput("result")
                                 )
-                                
                               )
-                          )),
-                          tabPanel("External Data", fluidPage(
-                            sidebarLayout(
-                              sidebarPanel(
-                                
-                                
-                              ),
-                              
-                              # Show a plot of the generated distribution
-                              mainPanel(
-                                
-                                
-                              )
+                          ))
+                          # tabPanel("External Data", fluidPage(
+                          #   sidebarLayout(
+                          #     sidebarPanel(
+                          #       
+                          #       
+                          #     ),
+                          #     
+                          #     # Show a plot of the generated distribution
+                          #     mainPanel(
+                          #       
+                          #       
+                          #     )
                             
                           ))
-                          ))
-)
+                          )
 
 
 load('nomiss.rda')
-original<- read_csv("train_US_1year_nojson.csv")
+#original<- read_csv("train_US_1year_nojson.csv")
 
 
 
@@ -251,20 +251,7 @@ server <- function(input, output) {
         cg()
       }
     )
-    
-    
-    # 
-    # 
-    # output$curve_text = renderPrint({
-    #  dim(cg_top())
-    # })
-    # 
-    # output$exon_curve_text = renderPrint({
-    #   input$fea_top
-    # })
-    # output$intron_curve_text = renderPrint({
-    #   cg()[1:input$fea_top,]
-    # })
+
 
     output$plot1 <- renderPlotly({
       plot_ly(cg_top(),x=~reorder(Var1,-Freq),y=~Freq,type = 'bar',text = cg()$percent)%>%
@@ -526,7 +513,7 @@ server <- function(input, output) {
 #         }
 #       })
      
-    pred_new = reactive({
+    pred_new = eventReactive(input$go, {
       if (is.null(input$file1)) {
         nn = cbind(pred.res,file)
         colnames(nn)[1] = 'Predicted Revenue'
