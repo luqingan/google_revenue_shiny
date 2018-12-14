@@ -76,19 +76,18 @@ ui <-  shinyUI(navbarPage("Google Analytics Customer Revenue Prediction",
                               
                               # Show a plot of the generated distribution
                               mainPanel(
-                                 tabsetPanel(
-                                   tabPanel("EDA", 
+                                 
                                             
-                                           verbatimTextOutput("impo"),
-                                           verbatimTextOutput('curve_text'),
-                                           verbatimTextOutput('exon_curve_text'),
-                                           verbatimTextOutput('intron_curve_text'),
+                                           # verbatimTextOutput('curve_text'),
+                                           # verbatimTextOutput('exon_curve_text'),
+                                           # verbatimTextOutput('intron_curve_text'),
+                                           h2("Data Exploration"),
+                                           
                                            h4('Feature distribution'),
 
                                            plotlyOutput('plot1',height = 600)%>% withSpinner(),
                                            br(),br(),
                                            
-
                                            h4('Feature correlation'),
 
                                            plotOutput('plot2',height = 600)%>% withSpinner(),
@@ -98,25 +97,98 @@ ui <-  shinyUI(navbarPage("Google Analytics Customer Revenue Prediction",
 
                                            plotlyOutput('plot3',height = 600)%>% withSpinner(),
                                            br(),br(),
-
                                            h4('Time series'),
-
                                            plotlyOutput('plot4',height = 600)%>% withSpinner()
                                   )
-                                )
                                 
-                              )
                               
                             )#end of main panel 
                               )
+                              ),
+                          tabPanel("Prediction", fluidPage(
+                              tags$head(
+                                tags$style(HTML(" @import url('https://fonts.googleapis.com/css?family=Roboto:400,700');
+                                                h1{
+                                                font-family: 'Roboto', cursive;
+                                                font-weight: 500;
+                                                line-height: 1.5;
+                                                color: #2A9FD6;
+                                                }
+                                                h2{
+                                                font-family: 'Roboto', cursive;
+                                                font-weight: 500;
+                                                line-height: 1.5;
+                                                color: #2A9FD6;
+                                                }
+                                                h3{
+                                                font-family: 'Roboto', cursive;
+                                                font-weight: 500;
+                                                line-height: 1.5;
+                                                color: #2A9FD6;
+                                                }
+                                                figure {
+                                                margin: 0 0 1rem;
+                                                }
+                                                
+                                                # img {
+                                                # vertical-align: middle;
+                                                # border-style: none;
+                                                # }
+                                                "))
+                                ),
+                              headerPanel("Google Analytics Customer Revenue Prediction"),
+                              sidebarLayout(
+                                sidebarPanel(
+                                  
+                                  helpText("Make Prediction for new data"),
+                                  h3('Data processing'),
+                                  fileInput("file1", "Upload DNase CSV File"),
+                                
+                                  checkboxInput("new", label = 'Show new data'),
+                                  
+                                  actionButton('go','Make prediction!')
+                                ),
+                                
+                                # Show a plot of the generated distribution
+                                mainPanel(
+                                  h2("New data"),
+                                  conditionalPanel(
+                                       condition = "input.new == true",
+                                       DT::dataTableOutput("mytable")
+                                     ),
+                                  DT::dataTableOutput("result")
+                                )
+                                
                               )
+                          )),
+                          tabPanel("External Data", fluidPage(
+                            sidebarLayout(
+                              sidebarPanel(
+                                
+                                
+                              ),
+                              
+                              # Show a plot of the generated distribution
+                              mainPanel(
+                                
+                                
+                              )
+                            
                           ))
+                          ))
+)
 
 
 load('nomiss.rda')
-colnames(dat)
+original<- read_csv("train_US_1year_nojson.csv")
+
+
+
+#load('original.rda')
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  options(shiny.maxRequestSize=30000*1024^2)
+  
   ###input
   output$feature <- renderUI({
     selectizeInput("feature",
@@ -181,24 +253,22 @@ server <- function(input, output) {
     )
     
     
-    output$impo = renderPrint({
-      dim(cg())
-    })
-
-    output$curve_text = renderPrint({
-     dim(cg_top())
-    })
-
-    output$exon_curve_text = renderPrint({
-      input$fea_top
-    })
-    output$intron_curve_text = renderPrint({
-      cg()[1:input$fea_top,]
-    })
+    # 
+    # 
+    # output$curve_text = renderPrint({
+    #  dim(cg_top())
+    # })
+    # 
+    # output$exon_curve_text = renderPrint({
+    #   input$fea_top
+    # })
+    # output$intron_curve_text = renderPrint({
+    #   cg()[1:input$fea_top,]
+    # })
 
     output$plot1 <- renderPlotly({
       plot_ly(cg_top(),x=~reorder(Var1,-Freq),y=~Freq,type = 'bar',text = cg()$percent)%>%
-        layout(title = sel_feature(),
+        layout(title = input$feature,
                xaxis = list(title = input$feature),
                yaxis = list(title = "Number"))
     })
@@ -381,9 +451,96 @@ server <- function(input, output) {
       }
     })
 
-        
-   
+       
+########################### prediction 
 
+    file <- reactive({
+      infile <- input$file1
+      if (is.null(infile)) {
+        # User has not uploaded a file yet
+        return(NULL)
+      }
+      file = read.csv(infile$datapath)
+      file[,-1]
+    })
+    ######## show data 
+
+    output$mytable = DT::renderDataTable({
+      file()
+    })
+  
+    # ######################## NN model
+# 
+#     original <- original %>% dplyr::select(- transactions, -totalTransactionRevenue, -adwordsClickInfo.isVideoAd, -visitStartTime, -referralPath)
+# 
+#     original.mat <- original %>%
+#       mutate(date = ymd(date)) %>%
+#       mutate(year = year(date),
+#              month = month(date),
+#              day = day(date),
+#              isMobile = ifelse(isMobile, 1L, 0L),
+#              isTrueDirect = ifelse(isMobile, 1L, 0L)) %>%
+#       mutate_all(funs(ifelse(is.na(.), 0, .))) %>%
+#       dplyr::select(-date, -fullVisitorId, -visitId) %>%
+#       mutate_if(is.character, factor) %>%
+#       mutate_if(is.factor, fct_lump, prop = 0.01)
+# 
+#     train.index <- sample(1 : nrow(original.mat), 0.7 * nrow(original.mat), replace = FALSE)
+#     original.train <- original.mat[train.index, ]
+#     original.test <- original.mat[-train.index, ]
+# 
+#     
+#     original.keras.x <- original.mat %>%
+#       dplyr::select(-transactionRevenue) %>%
+#       mutate_if(is.factor, fct_explicit_na) %>%
+#       mutate_if(is.numeric, funs(ifelse(is.na(.), 0L, .))) %>%
+#       mutate_if(is.factor, fct_lump, prop = 0.05) %>%
+#       model.matrix(~.-1, .)
+#     original.keras.y <- original.mat %>% dplyr::select(transactionRevenue)
+#     ## dataset for training model
+#     original.keras.train.x <- original.keras.x[train.index, ]
+#     original.keras.train.y <- pull(original.keras.y[train.index, ])
+#     ## dataset for testing the model
+#     original.keras.test.x <- original.keras.x[-train.index, ]
+#     original.keras.test.y <- pull(original.keras.y[-train.index, ])
+#     ## Train the neural network model
+#      model_nn <- keras_model_sequential()
+#     model_nn %>%
+#       layer_dense(units = 32, activation = "relu", input_shape = ncol(original.keras.x)) %>%
+#       layer_dropout(rate = 0.1) %>%
+#       layer_dense(units = 16, activation = "relu") %>%
+#       layer_dropout(rate = 0.1) %>%
+#       layer_dense(units = 1, activation = "linear")
+#     model_nn %>% compile(loss = "mean_squared_error",
+#                          optimizer = optimizer_rmsprop())
+#     history <- model_nn %>%
+#       fit(original.keras.train.x, log(original.keras.train.y + 1),
+#           epochs = 100,
+#           batch_size = 4096,
+#           verbose = 1,
+#           validation_split = 0.2)
+#  
+#     pred.res <- reactive({
+#       if (is.null(input$file1)) {
+#                 predict(model_nn, file())
+#         }
+#       })
+     
+    pred_new = reactive({
+      if (is.null(input$file1)) {
+        nn = cbind(pred.res,file)
+        colnames(nn)[1] = 'Predicted Revenue'
+      }
+    })
+    
+    output$result = DT::renderDataTable({
+      pred_new()
+    })
+    
+    output$descriptions <- renderUI({
+      withMathJax(includeMarkdown('info.md'))
+    })
+    
 }
 
 # Run the application 
