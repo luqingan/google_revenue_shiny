@@ -15,4 +15,3 @@ RStudio, the developer of free and open tools for R and enterprise-ready product
  
 We analyzed a Google Merchandise Store (also known as GStore, where Google swag is sold) customer dataset to predict revenue per customer. The outcome is more actionable operational changes and a better use of marketing budgets for those companies who choose to use data analysis on top of GA data
 
-Here is the GitHub link: 
